@@ -1,0 +1,1569 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>נעמ"י - מערכת צמצום רשימות דיוור</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='50' cy='50' r='45' fill='%23e8f5e9' stroke='%234caf50' stroke-width='2'/%3E%3Cpath d='M 50 75 Q 50 60 50 45' stroke='%232e7d32' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3Cpath d='M 50 55 Q 35 50 30 45 Q 35 50 50 52' fill='%2366bb6a' stroke='%232e7d32' stroke-width='1.5'/%3E%3Cpath d='M 50 55 Q 65 50 70 45 Q 65 50 50 52' fill='%2366bb6a' stroke='%232e7d32' stroke-width='1.5'/%3E%3Cpath d='M 50 45 Q 40 42 35 35 Q 40 40 50 43' fill='%2381c784' stroke='%232e7d32' stroke-width='1.5'/%3E%3Cpath d='M 50 45 Q 60 42 65 35 Q 60 40 50 43' fill='%2381c784' stroke='%232e7d32' stroke-width='1.5'/%3E%3Ccircle cx='50' cy='35' r='8' fill='%234caf50'/%3E%3Ccircle cx='50' cy='35' r='5' fill='%2366bb6a'/%3E%3Ctext x='50' y='42' font-family='Heebo, Arial, sans-serif' font-size='14' font-weight='bold' fill='white' text-anchor='middle' dominant-baseline='middle'%3E%D7%A0%3C/text%3E%3C/svg%3E">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        @keyframes gradient { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-10px); } }
+        
+        body {
+            font-family: 'Heebo', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(-45deg, #e8f5e9, #c8e6c9, #a5d6a7, #81c784);
+            background-size: 400% 400%;
+            animation: gradient 15s ease infinite;
+            min-height: 100vh;
+            padding: 20px;
+            direction: rtl;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+            animation: slideIn 0.6s ease-out;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%);
+            color: #2e7d32;
+            padding: 40px;
+            text-align: center;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .logo {
+            display: inline-block;
+            margin-bottom: 15px;
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 8px;
+            font-weight: 300;
+            letter-spacing: 2px;
+            color: #1b5e20;
+        }
+        
+        .header .subtitle {
+            font-size: 1em;
+            font-weight: 400;
+            color: #66bb6a;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+        
+        .main-content { padding: 30px 40px; }
+        
+        .section {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            transition: all 0.3s;
+            border: 1px solid #f0f0f0;
+        }
+        
+        .section:hover {
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+        }
+        
+        .section-title {
+            font-size: 1.3em;
+            color: #2e7d32;
+            margin-bottom: 20px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .upload-row {
+            display: grid;
+            grid-template-columns: 1fr 250px;
+            gap: 15px;
+            margin-bottom: 15px;
+            align-items: center;
+        }
+        
+        .drop-zone {
+            border: 2px dashed #c8e6c9;
+            border-radius: 10px;
+            padding: 12px 16px;
+            text-align: center;
+            background: #fafafa;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 48px;
+        }
+        
+        .drop-zone::before {
+            content: '📂';
+            font-size: 1.2em;
+            margin-left: 8px;
+            opacity: 0.6;
+        }
+        
+        .drop-zone:hover {
+            border-color: #81c784;
+            background: #f1f8e9;
+        }
+        
+        .drop-zone.loaded {
+            border-color: #66bb6a;
+            background: #e8f5e9;
+            border-style: solid;
+        }
+        
+        .drop-zone.loaded::before {
+            content: '✅';
+        }
+        
+        .drop-zone-text {
+            font-size: 0.95em;
+            color: #616161;
+            font-weight: 400;
+        }
+        
+        .order-input {
+            padding: 12px 16px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 0.95em;
+            text-align: right;
+            transition: all 0.3s;
+            background: white;
+            font-weight: 400;
+            width: 100%;
+        }
+        
+        .order-input:focus {
+            outline: none;
+            border-color: #66bb6a;
+            box-shadow: 0 0 0 3px rgba(102, 187, 106, 0.1);
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            background: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.95em;
+            font-weight: 500;
+            transition: all 0.3s;
+            box-shadow: 0 2px 6px rgba(76, 175, 80, 0.2);
+        }
+        
+        .btn:hover:not(:disabled) {
+            background: #43a047;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.25);
+        }
+        
+        .btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .btn-add {
+            background: #66bb6a;
+            box-shadow: 0 2px 6px rgba(102, 187, 106, 0.2);
+            width: 100%;
+            margin-top: 10px;
+        }
+        
+        .btn-add:hover:not(:disabled) {
+            background: #4caf50;
+        }
+        
+        .btn-process {
+            background: #81c784;
+            box-shadow: 0 2px 8px rgba(129, 199, 132, 0.25);
+            font-size: 1.05em;
+            width: 100%;
+            padding: 14px;
+            margin-top: 20px;
+        }
+        
+        .btn-process:hover:not(:disabled) {
+            background: #66bb6a;
+        }
+        
+        .btn-export {
+            background: #4caf50;
+            box-shadow: 0 2px 8px rgba(76, 175, 80, 0.25);
+            font-size: 1.1em;
+            width: 100%;
+            padding: 14px;
+        }
+        
+        .btn-export:hover:not(:disabled) {
+            background: #43a047;
+        }
+        
+        .file-item {
+            background: linear-gradient(135deg, #ffffff 0%, #fafafa 100%);
+            padding: 16px;
+            margin: 10px 0;
+            border-radius: 10px;
+            border: 1px solid #f0f0f0;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 15px;
+            align-items: center;
+            transition: all 0.3s;
+        }
+        
+        .file-item:hover {
+            transform: translateX(-3px);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+            border-color: #e0e0e0;
+        }
+        
+        .file-info {
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+        }
+        
+        .file-info strong {
+            font-size: 1em;
+            color: #2e7d32;
+            font-weight: 600;
+            display: block;
+        }
+        
+        .file-stats {
+            color: #757575;
+            font-size: 0.85em;
+            margin-top: 4px;
+            font-weight: 400;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .delete-btn {
+            background: #ef5350;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1.2em;
+            font-weight: 500;
+            transition: all 0.3s;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .delete-btn:hover {
+            background: #e53935;
+            transform: scale(1.05);
+        }
+        
+        .status-message {
+            padding: 14px;
+            border-radius: 10px;
+            margin: 12px 0;
+            font-weight: 500;
+            font-size: 0.95em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        .status-success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #c8e6c9;
+        }
+        
+        .status-error {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ef9a9a;
+        }
+        
+        .status-info {
+            background: #e1f5fe;
+            color: #01579b;
+            border: 1px solid #b3e5fc;
+        }
+        
+        .hidden { display: none; }
+        input[type="file"] { display: none; }
+        
+        .summary-box {
+            background: #e8f5e9;
+            border: 1px solid #c8e6c9;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 18px 0;
+        }
+        
+        .summary-box h3 {
+            color: #2e7d32;
+            margin-bottom: 12px;
+            font-size: 1.3em;
+            font-weight: 600;
+        }
+        
+        .summary-stat {
+            padding: 6px 0;
+            color: #1b5e20;
+            font-size: 1em;
+            font-weight: 400;
+        }
+        
+        .decision-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(3px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        .decision-box {
+            background: white;
+            border-radius: 12px;
+            padding: 28px;
+            max-width: 1000px;
+            width: 95%;
+            max-height: 88vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            animation: slideIn 0.4s ease-out;
+        }
+        
+        .decision-box h3 {
+            color: #f57c00;
+            margin-bottom: 16px;
+            font-size: 1.2em;
+            font-weight: 600;
+        }
+        
+        .color-notice {
+            background: #fff9c4;
+            border: 1px solid #fff176;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 16px;
+            font-weight: 500;
+            color: #f57f17;
+            font-size: 0.9em;
+        }
+        
+        .person-row {
+            display: grid;
+            grid-template-columns: auto 1fr auto auto;
+            gap: 12px;
+            align-items: center;
+            padding: 10px;
+            margin: 8px 0;
+            border-radius: 8px;
+            border: 1px solid #e8e8e8;
+            transition: all 0.3s;
+            background: #fafafa;
+        }
+        
+        .person-row:hover {
+            background: #f5f5f5;
+            border-color: #81c784;
+            transform: translateX(-3px);
+        }
+        
+        .person-row input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: #4caf50;
+        }
+        
+        .person-info {
+            min-width: 0;
+            overflow: hidden;
+        }
+        
+        .person-name {
+            font-weight: 600;
+            font-size: 1em;
+            margin-bottom: 5px;
+            color: #2e7d32;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .person-details {
+            color: #757575;
+            font-size: 0.85em;
+            margin: 3px 0;
+            font-weight: 400;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .person-color {
+            width: 50px;
+            height: 50px;
+            border-radius: 6px;
+            border: 2px solid #bdbdbd;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+            position: relative;
+            flex-shrink: 0;
+        }
+        
+        .person-color.no-color {
+            background: repeating-linear-gradient(45deg, #f5f5f5, #f5f5f5 8px, #eeeeee 8px, #eeeeee 16px);
+            border-color: #bdbdbd;
+        }
+        
+        .person-color.no-color::after {
+            content: 'ללא צבע';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 0.65em;
+            color: #757575;
+            font-weight: 500;
+            text-align: center;
+        }
+        
+        .person-row-num {
+            background: #66bb6a;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.85em;
+            font-weight: 500;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        
+        .decision-actions {
+            margin-top: 22px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .decision-actions button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.95em;
+            transition: all 0.3s;
+        }
+        
+        .btn-merge-selected {
+            background: #4caf50;
+            color: white;
+            box-shadow: 0 2px 8px rgba(76, 175, 80, 0.25);
+        }
+        
+        .btn-merge-selected:hover {
+            background: #43a047;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.35);
+        }
+        
+        .btn-keep-separate {
+            background: #9e9e9e;
+            color: white;
+            box-shadow: 0 2px 8px rgba(158, 158, 158, 0.25);
+        }
+        
+        .btn-keep-separate:hover {
+            background: #757575;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(117, 117, 117, 0.35);
+        }
+
+        ::-webkit-scrollbar { width: 10px; }
+        ::-webkit-scrollbar-track { background: #f5f5f5; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: #c8e6c9; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #a5d6a7; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                <svg width="80" height="80" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Background circle -->
+                    <circle cx="50" cy="50" r="45" fill="#e8f5e9" stroke="#4caf50" stroke-width="2"/>
+                    
+                    <!-- Plant stem -->
+                    <path d="M 50 75 Q 50 60 50 45" stroke="#2e7d32" stroke-width="3" fill="none" stroke-linecap="round"/>
+                    
+                    <!-- Left leaf -->
+                    <path d="M 50 55 Q 35 50 30 45 Q 35 50 50 52" fill="#66bb6a" stroke="#2e7d32" stroke-width="1.5"/>
+                    
+                    <!-- Right leaf -->
+                    <path d="M 50 55 Q 65 50 70 45 Q 65 50 50 52" fill="#66bb6a" stroke="#2e7d32" stroke-width="1.5"/>
+                    
+                    <!-- Top leaves -->
+                    <path d="M 50 45 Q 40 42 35 35 Q 40 40 50 43" fill="#81c784" stroke="#2e7d32" stroke-width="1.5"/>
+                    <path d="M 50 45 Q 60 42 65 35 Q 60 40 50 43" fill="#81c784" stroke="#2e7d32" stroke-width="1.5"/>
+                    
+                    <!-- Central flower/sprout -->
+                    <circle cx="50" cy="35" r="8" fill="#4caf50"/>
+                    <circle cx="50" cy="35" r="5" fill="#66bb6a"/>
+                    
+                    <!-- Hebrew letter נ -->
+                    <text x="50" y="42" font-family="'Heebo', Arial, sans-serif" font-size="14" font-weight="bold" fill="white" text-anchor="middle" dominant-baseline="middle">נ</text>
+                </svg>
+            </div>
+            <h1>נעמ״י</h1>
+            <div class="subtitle">ניתוח עיבוד ומיון יעיל</div>
+        </div>
+
+        <div class="main-content">
+            <div class="section">
+                <div class="section-title">📂 טעינת קבצים</div>
+                <div id="uploadRows"></div>
+            </div>
+
+            <div id="loadedFiles" class="hidden section">
+                <div class="section-title">📋 קבצים שנטענו</div>
+                <div id="filesContainer"></div>
+                <button class="btn btn-process" id="prepareBtn" onclick="processAllFiles()" disabled style="margin-top: 20px;">⚙️ הכן רשימת צמצום</button>
+            </div>
+
+            <div id="statusArea"></div>
+
+            <div id="resultsArea" class="hidden">
+                <div class="summary-box" id="summaryBox"></div>
+                <button class="btn btn-export" onclick="exportFile()">💾 הפק רשימת צמצום</button>
+            </div>
+
+            <div id="exportStatus"></div>
+            
+            <div style="text-align: center; padding: 20px; color: #66bb6a; font-size: 0.9em; font-weight: 500;">
+                נבנה עבור חברת נענע פרסומי נדל״ן
+            </div>
+        </div>
+    </div>
+
+    <div id="decisionModal" class="hidden"></div>
+
+    <script>
+        let uploadSlots = [];
+        let loadedFilesData = [];
+        let processedResults = [];
+        let pendingDecisions = [];
+        let currentDecisionIndex = 0;
+
+        const PROXIMITY_THRESHOLD = 2;
+
+        function init() {
+            addUploadRow();
+        }
+
+        function addUploadRow() {
+            const rowId = uploadSlots.length;
+            uploadSlots.push({ file: null, orderNum: '', loaded: false });
+
+            const container = document.getElementById('uploadRows');
+            const row = document.createElement('div');
+            row.className = 'upload-row';
+            row.id = `row-${rowId}`;
+            row.innerHTML = `
+                <div class="drop-zone" id="dropzone-${rowId}" onclick="document.getElementById('file-${rowId}').click()">
+                    <div class="drop-zone-text">לחץ או גרור קובץ Excel</div>
+                </div>
+                <input type="file" id="file-${rowId}" accept=".xlsx,.xlsm" onchange="handleFileSelect(${rowId}, event)">
+                <input type="text" class="order-input" id="order-${rowId}" placeholder="מספר הזמנה" oninput="updateOrderNum(${rowId}, this.value)" maxlength="20">
+            `;
+            container.appendChild(row);
+            setupDragAndDrop(rowId);
+        }
+
+        function setupDragAndDrop(rowId) {
+            const dropZone = document.getElementById(`dropzone-${rowId}`);
+            dropZone.addEventListener('dragover', (e) => { e.preventDefault(); });
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                if (e.dataTransfer.files.length > 0) {
+                    const fileInput = document.getElementById(`file-${rowId}`);
+                    fileInput.files = e.dataTransfer.files;
+                    handleFileSelect(rowId, { target: fileInput });
+                }
+            });
+        }
+
+        function handleFileSelect(rowId, event) {
+            const file = event.target.files[0];
+            if (file) {
+                uploadSlots[rowId].file = file;
+                const dropZone = document.getElementById(`dropzone-${rowId}`);
+                dropZone.innerHTML = `<div class="drop-zone-text">${file.name}</div>`;
+                dropZone.classList.add('loaded');
+                
+                // Auto-detect 5-digit order number from filename
+                const orderInput = document.getElementById(`order-${rowId}`);
+                const match = file.name.match(/(?<!\d)(\d{5})(?!\d)/);
+                if (match && !orderInput.value.trim()) {
+                    orderInput.value = match[1];
+                    uploadSlots[rowId].orderNum = match[1];
+                }
+                
+                // Check if both file and order number exist
+                if (orderInput.value.trim()) {
+                    uploadSlots[rowId].orderNum = orderInput.value.trim();
+                    loadFileData(rowId);
+                }
+                
+                // Auto-add new row
+                setTimeout(() => addUploadRow(), 100);
+            }
+        }
+
+        function updateOrderNum(rowId, value) {
+            uploadSlots[rowId].orderNum = value.trim();
+            
+            // If already loaded, update the loaded data
+            if (uploadSlots[rowId].loaded) {
+                const fileData = loadedFilesData.find(f => f.filename === uploadSlots[rowId].file.name);
+                if (fileData) {
+                    fileData.orderNum = value.trim();
+                    updateLoadedFilesList();
+                }
+                return;
+            }
+            
+            // If both file and order exist, load immediately
+            if (uploadSlots[rowId].file && uploadSlots[rowId].orderNum) {
+                loadFileData(rowId);
+            }
+        }
+
+        function updateLoadButton(rowId) {
+            // No longer needed - removed
+        }
+
+        async function loadFileData(rowId) {
+            const slot = uploadSlots[rowId];
+            if (!slot.file || !slot.orderNum || slot.loaded) return;
+            
+            slot.loaded = true; // Mark as loaded
+
+            try {
+                const arrayBuffer = await slot.file.arrayBuffer();
+                const workbook = new ExcelJS.Workbook();
+                await workbook.xlsx.load(arrayBuffer);
+                const worksheet = workbook.getWorksheet(1);
+                const allPeople = [];
+
+                worksheet.eachRow((row, rowNumber) => {
+                    if (rowNumber >= 20) {
+                        const nameCell = row.getCell(4);
+                        const addressCell = row.getCell(7);
+                        const cityCell = row.getCell(8);
+                        const simukhimCell = row.getCell(11);
+
+                        const name = nameCell.value ? String(nameCell.value).trim() : '';
+                        const address = addressCell.value ? String(addressCell.value).trim() : '';
+                        const city = cityCell.value ? String(cityCell.value).trim() : '';
+                        
+                        let hasSimukhim = false;
+                        if (simukhimCell.value !== null && simukhimCell.value !== undefined && simukhimCell.value !== '') {
+                            const val = simukhimCell.value;
+                            // Ignore Excel errors like #N/A, #REF!, #VALUE!, etc.
+                            if (typeof val === 'string') {
+                                const trimmed = val.trim();
+                                // Check if it's NOT an Excel error and NOT empty
+                                if (trimmed && !trimmed.startsWith('#') && trimmed.toLowerCase() !== 'none') {
+                                    hasSimukhim = true;
+                                }
+                            } else if (typeof val === 'number') {
+                                hasSimukhim = true;
+                            }
+                        }
+
+                        if (!hasSimukhim && name && address && city) {
+                            const colorInfo = extractCellColor(nameCell);
+                            const ownershipCell = row.getCell(10);
+                            const ownership = ownershipCell.value ? String(ownershipCell.value).trim() : '';
+
+                            allPeople.push({
+                                rowNumber: rowNumber,
+                                name: name,
+                                lastName: getLastName(name),
+                                address: address,
+                                normalizedAddress: normalizeAddress(address),
+                                baseAddress: getBaseAddress(normalizeAddress(address)),
+                                hasApartment: hasApartmentNumber(address),
+                                city: city,
+                                color: colorInfo ? colorInfo.key : null,
+                                colorDisplay: colorInfo ? colorInfo.display : null,
+                                isHazaka: ownership === 'בעל חזקה',
+                                id: row.getCell(5).value || '',
+                                query: row.getCell(6).value || '',
+                                postal: row.getCell(9).value || ''
+                            });
+                        }
+                    }
+                });
+
+                loadedFilesData.push({
+                    filename: slot.file.name,
+                    orderNum: slot.orderNum,
+                    people: allPeople,
+                    originalCount: allPeople.length
+                });
+
+                updateLoadedFilesList();
+                
+                // Don't remove the row anymore - just mark as loaded
+                const dropZone = document.getElementById(`dropzone-${rowId}`);
+                if (dropZone) dropZone.style.pointerEvents = 'none';
+                // Keep order input editable - don't disable it
+                
+            } catch (error) {
+                alert('שגיאה בקריאת הקובץ: ' + error.message);
+                slot.loaded = false;
+            }
+        }
+
+        function hasApartmentNumber(address) {
+            return /דירה\s+\d+|\d+\/\d+/.test(address);
+        }
+
+        function normalizeAddress(address) {
+            let normalized = address.trim();
+            normalized = normalized.replace(/(\d+)\/(\d+)/, '$1-$2');
+            normalized = normalized.replace(/,?\s*דירה\s+(\d+)/, '-$1');
+            return normalized;
+        }
+
+        function getBaseAddress(address) {
+            return address.replace(/[-,]\s*\d+$/, '').trim();
+        }
+
+        function hasCommonWord(name1, name2) {
+            const words1 = name1.split(' ').filter(w => w.length > 2);
+            const words2 = name2.split(' ').filter(w => w.length > 2);
+            return words1.some(w1 => words2.some(w2 => w1 === w2));
+        }
+
+        function areRowsProximate(rows) {
+            const sorted = rows.sort((a, b) => a - b);
+            for (let i = 1; i < sorted.length; i++) {
+                if (sorted[i] - sorted[i-1] > PROXIMITY_THRESHOLD) return false;
+            }
+            return true;
+        }
+
+        function getLastName(name) {
+            return name.split(' ')[0] || '';
+        }
+
+        function formatMergedName(people) {
+            const lastName = getLastName(people[0].name);
+            const allSameLastName = people.every(p => getLastName(p.name) === lastName);
+            
+            if (allSameLastName) {
+                const firstNames = people.map(p => {
+                    const parts = p.name.split(' ');
+                    parts.shift(); // Remove last name
+                    return parts.join(' ').replace(/^(כהן|לוי|מלכה)\s+/, ''); // Remove duplicate family names
+                }).filter(Boolean);
+                
+                if (firstNames.length === 0) return lastName;
+                if (firstNames.length === 1) return `${lastName} ${firstNames[0]}`;
+                const lastFirst = firstNames.pop();
+                return `${lastName} ${firstNames.join(', ')} ו${lastFirst}`;
+            }
+            
+            return people.map(p => p.name).join(' ו');
+        }
+
+        async function loadFile(rowId) {
+            const slot = uploadSlots[rowId];
+            if (!slot.file || !slot.orderNum) return;
+
+            try {
+                const arrayBuffer = await slot.file.arrayBuffer();
+                const workbook = new ExcelJS.Workbook();
+                await workbook.xlsx.load(arrayBuffer);
+                const worksheet = workbook.getWorksheet(1);
+                const allPeople = [];
+
+                worksheet.eachRow((row, rowNumber) => {
+                    if (rowNumber >= 20) {
+                        const nameCell = row.getCell(4);
+                        const addressCell = row.getCell(7);
+                        const cityCell = row.getCell(8);
+                        const simukhimCell = row.getCell(11);
+
+                        const name = nameCell.value ? String(nameCell.value).trim() : '';
+                        const address = addressCell.value ? String(addressCell.value).trim() : '';
+                        const city = cityCell.value ? String(cityCell.value).trim() : '';
+                        
+                        let hasSimukhim = false;
+                        if (simukhimCell.value !== null && simukhimCell.value !== undefined && simukhimCell.value !== '') {
+                            const val = simukhimCell.value;
+                            // Ignore Excel errors like #N/A, #REF!, #VALUE!, etc.
+                            if (typeof val === 'string') {
+                                const trimmed = val.trim();
+                                // Check if it's NOT an Excel error and NOT empty
+                                if (trimmed && !trimmed.startsWith('#') && trimmed.toLowerCase() !== 'none') {
+                                    hasSimukhim = true;
+                                }
+                            } else if (typeof val === 'number') {
+                                hasSimukhim = true;
+                            }
+                        }
+
+                        if (!hasSimukhim && name && address && city) {
+                            const colorInfo = extractCellColor(nameCell);
+                            const ownershipCell = row.getCell(10);
+                            const ownership = ownershipCell.value ? String(ownershipCell.value).trim() : '';
+
+                            allPeople.push({
+                                rowNumber: rowNumber,
+                                name: name,
+                                lastName: getLastName(name),
+                                address: address,
+                                normalizedAddress: normalizeAddress(address),
+                                baseAddress: getBaseAddress(normalizeAddress(address)),
+                                hasApartment: hasApartmentNumber(address),
+                                city: city,
+                                color: colorInfo ? colorInfo.key : null,
+                                colorDisplay: colorInfo ? colorInfo.display : null,
+                                isHazaka: ownership === 'בעל חזקה',
+                                id: row.getCell(5).value || '',
+                                query: row.getCell(6).value || '',
+                                postal: row.getCell(9).value || ''
+                            });
+                        }
+                    }
+                });
+
+                loadedFilesData.push({
+                    filename: slot.file.name,
+                    orderNum: slot.orderNum,
+                    people: allPeople,
+                    originalCount: allPeople.length
+                });
+
+                updateLoadedFilesList();
+                document.getElementById(`row-${rowId}`).remove();
+                uploadSlots[rowId] = null;
+            } catch (error) {
+                alert('שגיאה בקריאת הקובץ: ' + error.message);
+            }
+        }
+
+        function updateLoadedFilesList() {
+            const container = document.getElementById('filesContainer');
+            container.innerHTML = '';
+            loadedFilesData.forEach((file, index) => {
+                const div = document.createElement('div');
+                div.className = 'file-item';
+                div.innerHTML = `
+                    <div class="file-info">
+                        <strong>📦 הזמנה ${file.orderNum}</strong>
+                        <div class="file-stats">📄 ${file.filename} • 📊 ${file.originalCount} נמענים</div>
+                    </div>
+                    <button class="delete-btn" onclick="removeLoadedFile(${index})">🗑️</button>
+                `;
+                container.appendChild(div);
+            });
+            
+            const loadedFilesSection = document.getElementById('loadedFiles');
+            if (loadedFilesData.length > 0) {
+                loadedFilesSection.classList.remove('hidden');
+                
+                // Enable prepare button
+                const prepareBtn = document.getElementById('prepareBtn');
+                if (prepareBtn) {
+                    prepareBtn.disabled = false;
+                }
+            } else {
+                loadedFilesSection.classList.add('hidden');
+            }
+        }
+
+        function removeLoadedFile(index) {
+            if (confirm('למחוק קובץ זה?')) {
+                loadedFilesData.splice(index, 1);
+                if (loadedFilesData.length === 0) {
+                    document.getElementById('loadedFiles').classList.add('hidden');
+                    const prepareBtn = document.getElementById('prepareBtn');
+                    if (prepareBtn) prepareBtn.disabled = true;
+                } else {
+                    updateLoadedFilesList();
+                }
+            }
+        }
+
+        async function processAllFiles() {
+            if (loadedFilesData.length === 0) return;
+            document.getElementById('statusArea').innerHTML = '<div class="status-message status-info">⏳ מעבד קבצים...</div>';
+
+            try {
+                pendingDecisions = [];
+                processedResults = [];
+                
+                for (const fileData of loadedFilesData) {
+                    const result = await processFile(fileData);
+                    processedResults.push(result);
+                }
+
+                if (pendingDecisions.length > 0) {
+                    currentDecisionIndex = 0;
+                    showNextDecision();
+                } else {
+                    finishProcessing();
+                }
+            } catch (error) {
+                document.getElementById('statusArea').innerHTML = `<div class="status-message status-error">❌ שגיאה: ${error.message}</div>`;
+            }
+        }
+
+        async function processFile(fileData) {
+            const people = fileData.people;
+            const processed = new Set();
+            const autoMerged = [];
+            const needsDecision = [];
+
+            // Step 0: Exclude "בעל חזקה" from merging - always keep as separate rows
+            people.forEach(p => {
+                if (p.isHazaka) {
+                    autoMerged.push({
+                        people: [p],
+                        ...p,
+                        minRowNumber: p.rowNumber
+                    });
+                    processed.add(p.rowNumber);
+                }
+            });
+
+            // Step 1: Process exact addresses (with apartment)
+            const exactGroups = {};
+            people.forEach(p => {
+                if (!processed.has(p.rowNumber) && p.hasApartment) {
+                    const key = `${p.normalizedAddress}|${p.city}`;
+                    if (!exactGroups[key]) exactGroups[key] = [];
+                    exactGroups[key].push(p);
+                }
+            });
+
+            for (const [key, group] of Object.entries(exactGroups)) {
+                if (group.length === 1) {
+                    // Single person in this exact apartment - add as is
+                    autoMerged.push({
+                        people: [group[0]],
+                        ...group[0],
+                        minRowNumber: group[0].rowNumber
+                    });
+                    processed.add(group[0].rowNumber);
+                    continue;
+                }
+
+                // Multiple people in SAME apartment - check common word
+                let hasAnyCommon = false;
+                for (let i = 0; i < group.length - 1; i++) {
+                    for (let j = i + 1; j < group.length; j++) {
+                        if (hasCommonWord(group[i].name, group[j].name)) {
+                            hasAnyCommon = true;
+                            break;
+                        }
+                    }
+                    if (hasAnyCommon) break;
+                }
+
+                if (hasAnyCommon) {
+                    // AUTO MERGE - has common word
+                    autoMerged.push({
+                        people: group,
+                        name: formatMergedName(group),
+                        address: group[0].address,
+                        city: group[0].city,
+                        id: group[0].id,
+                        query: group[0].query,
+                        postal: group[0].postal,
+                        minRowNumber: Math.min(...group.map(p => p.rowNumber)),
+                        lastName: group[0].lastName,
+                        baseAddress: group[0].baseAddress
+                    });
+                    group.forEach(p => processed.add(p.rowNumber));
+                    continue;
+                }
+
+                // No common word - check same color
+                const colors = group.map(p => p.color).filter(Boolean);
+                const uniqueColors = [...new Set(colors)];
+                if (uniqueColors.length === 1 && colors.length === group.length) {
+                    // AUTO MERGE - same color
+                    autoMerged.push({
+                        people: group,
+                        name: formatMergedName(group),
+                        address: group[0].address,
+                        city: group[0].city,
+                        id: group[0].id,
+                        query: group[0].query,
+                        postal: group[0].postal,
+                        minRowNumber: Math.min(...group.map(p => p.rowNumber)),
+                        lastName: group[0].lastName,
+                        baseAddress: group[0].baseAddress
+                    });
+                    group.forEach(p => processed.add(p.rowNumber));
+                    continue;
+                }
+
+                // ASK USER
+                needsDecision.push(group);
+                group.forEach(p => processed.add(p.rowNumber));
+            }
+
+            // Step 2: Process base addresses - ONLY for people WITHOUT apartment numbers
+            const baseGroups = {};
+            people.forEach(p => {
+                if (!processed.has(p.rowNumber) && !p.hasApartment) {
+                    const key = `${p.baseAddress}|${p.city}`;
+                    if (!baseGroups[key]) baseGroups[key] = [];
+                    baseGroups[key].push(p);
+                }
+            });
+
+            for (const [key, group] of Object.entries(baseGroups)) {
+                if (group.length === 1) {
+                    autoMerged.push({
+                        people: [group[0]],
+                        ...group[0],
+                        minRowNumber: group[0].rowNumber
+                    });
+                    processed.add(group[0].rowNumber);
+                    continue;
+                }
+
+                // Group by common words
+                const wordGroups = [];
+                const usedIndices = new Set();
+
+                for (let i = 0; i < group.length; i++) {
+                    if (usedIndices.has(i)) continue;
+                    
+                    const currentGroup = [group[i]];
+                    usedIndices.add(i);
+                    
+                    for (let j = i + 1; j < group.length; j++) {
+                        if (usedIndices.has(j)) continue;
+                        
+                        // Check if j has common word with anyone in currentGroup
+                        if (currentGroup.some(p => hasCommonWord(p.name, group[j].name))) {
+                            currentGroup.push(group[j]);
+                            usedIndices.add(j);
+                        }
+                    }
+                    
+                    wordGroups.push(currentGroup);
+                }
+
+                // Process each word group
+                for (const wordGroup of wordGroups) {
+                    if (wordGroup.length === 1) {
+                        // Don't add singles yet - collect them for color check below
+                        continue;
+                    }
+
+                    // Multiple people with common word
+                    const rows = wordGroup.map(p => p.rowNumber);
+                    const isProx = areRowsProximate(rows);
+
+                    if (isProx) {
+                        // AUTO MERGE - proximate
+                        autoMerged.push({
+                            people: wordGroup,
+                            name: formatMergedName(wordGroup),
+                            address: wordGroup[0].address,
+                            city: wordGroup[0].city,
+                            id: wordGroup[0].id,
+                            query: wordGroup[0].query,
+                            postal: wordGroup[0].postal,
+                            minRowNumber: Math.min(...rows),
+                            lastName: wordGroup[0].lastName,
+                            baseAddress: wordGroup[0].baseAddress
+                        });
+                        wordGroup.forEach(p => processed.add(p.rowNumber));
+                    } else {
+                        // Not proximate - check color
+                        const colors = wordGroup.map(p => p.color).filter(Boolean);
+                        const uniqueColors = [...new Set(colors)];
+                        if (uniqueColors.length === 1 && colors.length === wordGroup.length) {
+                            // AUTO MERGE - same color
+                            autoMerged.push({
+                                people: wordGroup,
+                                name: formatMergedName(wordGroup),
+                                address: wordGroup[0].address,
+                                city: wordGroup[0].city,
+                                id: wordGroup[0].id,
+                                query: wordGroup[0].query,
+                                postal: wordGroup[0].postal,
+                                minRowNumber: Math.min(...rows),
+                                lastName: wordGroup[0].lastName,
+                                baseAddress: wordGroup[0].baseAddress
+                            });
+                            wordGroup.forEach(p => processed.add(p.rowNumber));
+                        } else {
+                            // ASK USER
+                            needsDecision.push(wordGroup);
+                            wordGroup.forEach(p => processed.add(p.rowNumber));
+                        }
+                    }
+                }
+
+                // Color-based merge for singles: collect unprocessed singles from this base address group
+                const remainingSingles = group.filter(p => !processed.has(p.rowNumber));
+                if (remainingSingles.length > 1) {
+                    // Group remaining singles by color
+                    const colorGroups = {};
+                    const noColorSingles = [];
+                    remainingSingles.forEach(p => {
+                        if (p.color) {
+                            if (!colorGroups[p.color]) colorGroups[p.color] = [];
+                            colorGroups[p.color].push(p);
+                        } else {
+                            noColorSingles.push(p);
+                        }
+                    });
+
+                    // Merge singles that share the same color
+                    for (const [colorKey, colorGroup] of Object.entries(colorGroups)) {
+                        if (colorGroup.length > 1) {
+                            // AUTO MERGE - same base address + same color
+                            autoMerged.push({
+                                people: colorGroup,
+                                name: formatMergedName(colorGroup),
+                                address: colorGroup[0].address,
+                                city: colorGroup[0].city,
+                                id: colorGroup[0].id,
+                                query: colorGroup[0].query,
+                                postal: colorGroup[0].postal,
+                                minRowNumber: Math.min(...colorGroup.map(p => p.rowNumber)),
+                                lastName: colorGroup[0].lastName,
+                                baseAddress: colorGroup[0].baseAddress
+                            });
+                            colorGroup.forEach(p => processed.add(p.rowNumber));
+                        } else {
+                            // Single with color but no match - add as is
+                            autoMerged.push({
+                                people: [colorGroup[0]],
+                                ...colorGroup[0],
+                                minRowNumber: colorGroup[0].rowNumber
+                            });
+                            processed.add(colorGroup[0].rowNumber);
+                        }
+                    }
+
+                    // Add remaining no-color singles
+                    noColorSingles.forEach(p => {
+                        if (!processed.has(p.rowNumber)) {
+                            autoMerged.push({
+                                people: [p],
+                                ...p,
+                                minRowNumber: p.rowNumber
+                            });
+                            processed.add(p.rowNumber);
+                        }
+                    });
+                } else {
+                    // Only 0 or 1 remaining single - add as is
+                    remainingSingles.forEach(p => {
+                        if (!processed.has(p.rowNumber)) {
+                            autoMerged.push({
+                                people: [p],
+                                ...p,
+                                minRowNumber: p.rowNumber
+                            });
+                            processed.add(p.rowNumber);
+                        }
+                    });
+                }
+            }
+
+            // Add any remaining people who have apartments but were singles
+            people.forEach(p => {
+                if (!processed.has(p.rowNumber)) {
+                    autoMerged.push({
+                        people: [p],
+                        ...p,
+                        minRowNumber: p.rowNumber
+                    });
+                    processed.add(p.rowNumber);
+                }
+            });
+
+            autoMerged.sort((a, b) => a.minRowNumber - b.minRowNumber);
+
+            needsDecision.forEach(group => {
+                pendingDecisions.push({ fileData, people: group });
+            });
+
+            return {
+                orderNum: fileData.orderNum,
+                filename: fileData.filename,
+                originalCount: fileData.originalCount,
+                autoMerged: autoMerged,
+                pendingCount: needsDecision.length
+            };
+        }
+
+        function showNextDecision() {
+            if (currentDecisionIndex >= pendingDecisions.length) {
+                finishProcessing();
+                return;
+            }
+
+            const decision = pendingDecisions[currentDecisionIndex];
+            const modal = document.getElementById('decisionModal');
+            
+            const colors = decision.people.map(p => p.color).filter(Boolean);
+            const uniqueColors = [...new Set(colors)];
+            const hasSameColor = uniqueColors.length === 1 && colors.length === decision.people.length;
+            
+            // Get display color for the notice
+            const displayColors = decision.people.map(p => p.colorDisplay).filter(Boolean);
+            const displayColor = displayColors.length > 0 ? displayColors[0] : null;
+            
+            // Check if addresses are different
+            const addresses = [...new Set(decision.people.map(p => p.address))];
+            const hasDifferentAddresses = addresses.length > 1;
+            
+            let html = '<div class="decision-modal"><div class="decision-box">';
+            html += '<h3>⚠️ נדרשת החלטה</h3>';
+            
+            if (hasSameColor && displayColor) {
+                html += `<div class="color-notice">🎨 כל הנמענים בעלי צבע זהה: <span style="display:inline-block;width:18px;height:18px;background:#${displayColor};border:1px solid #999;border-radius:3px;vertical-align:middle;margin:0 4px;"></span></div>`;
+            }
+            
+            if (hasDifferentAddresses) {
+                html += `<div class="color-notice" style="background: #fff3e0; border-color: #ffb74d; color: #e65100;">⚠️ שים לב: כתובות שונות! בחר כתובת לאחר הצמצום</div>`;
+            }
+            
+            html += `<p style="margin-bottom: 16px; color: #666; font-size: 0.9em;">בחר/י מי לצמצם יחד (${decision.people.length} אנשים${hasDifferentAddresses ? ' בכתובות דומות' : ' באותה כתובת'}):</p>`;
+            
+            decision.people.forEach((person, idx) => {
+                html += `<div class="person-row">`;
+                html += `<input type="checkbox" id="person-${idx}" checked>`;
+                html += `<div class="person-info">`;
+                html += `<div class="person-name">${person.name}</div>`;
+                html += `<div class="person-details">📍 ${person.address}, ${person.city}</div>`;
+                if (person.id) html += `<div class="person-details">🆔 ת.ז: ${person.id}</div>`;
+                html += `</div>`;
+                
+                if (person.colorDisplay) {
+                    html += `<div class="person-color" style="background-color: #${person.colorDisplay};" title="צבע: #${person.colorDisplay}"></div>`;
+                } else {
+                    html += `<div class="person-color no-color"></div>`;
+                }
+                
+                html += `<div class="person-row-num">שורה ${person.rowNumber}</div>`;
+                html += `</div>`;
+            });
+            
+            // Add address selection if needed
+            if (hasDifferentAddresses) {
+                html += '<div style="margin-top: 20px; padding: 15px; background: #e8f5e9; border: 1px solid #c8e6c9; border-radius: 8px;">';
+                html += '<div style="font-weight: 600; margin-bottom: 12px; color: #2e7d32; font-size: 1em;">בחר כתובת לרשימת הצמצום:</div>';
+                addresses.forEach((addr, idx) => {
+                    html += `<div style="margin: 10px 0; padding: 8px; background: white; border-radius: 6px; border: 1px solid #e0e0e0;">`;
+                    html += `<input type="radio" name="selectedAddress" id="addr-${idx}" value="${addr}" ${idx === 0 ? 'checked' : ''} style="margin-left: 10px; width: 18px; height: 18px; cursor: pointer; accent-color: #4caf50;">`;
+                    html += `<label for="addr-${idx}" style="cursor: pointer; font-size: 0.95em; color: #424242;">${addr}</label>`;
+                    html += `</div>`;
+                });
+                html += '</div>';
+            }
+            
+            html += '<div class="decision-actions">';
+            html += '<button class="btn-merge-selected" onclick="applyDecision(true)">✅ צמצם נבחרים</button>';
+            html += '<button class="btn-keep-separate" onclick="applyDecision(false)">⏭️ שמור הכל נפרד</button>';
+            html += '</div>';
+            html += '</div></div>';
+            
+            modal.innerHTML = html;
+            modal.classList.remove('hidden');
+        }
+
+        function applyDecision(merge) {
+            const decision = pendingDecisions[currentDecisionIndex];
+            const result = processedResults.find(r => r.orderNum === decision.fileData.orderNum);
+            
+            if (merge) {
+                const selected = [];
+                decision.people.forEach((person, idx) => {
+                    const checkbox = document.getElementById(`person-${idx}`);
+                    if (checkbox && checkbox.checked) selected.push(person);
+                });
+                
+                if (selected.length > 0) {
+                    // Get selected address if available
+                    let selectedAddress = selected[0].address;
+                    const addressRadios = document.querySelectorAll('input[name="selectedAddress"]');
+                    addressRadios.forEach(radio => {
+                        if (radio.checked) {
+                            selectedAddress = radio.value;
+                        }
+                    });
+                    
+                    result.autoMerged.push({
+                        people: selected,
+                        name: formatMergedName(selected),
+                        address: selectedAddress,  // Use selected address
+                        city: selected[0].city,
+                        id: selected[0].id,
+                        query: selected[0].query,
+                        postal: selected[0].postal,
+                        minRowNumber: Math.min(...selected.map(p => p.rowNumber))
+                    });
+                    
+                    decision.people.forEach(p => {
+                        if (!selected.includes(p)) {
+                            result.autoMerged.push({
+                                people: [p],
+                                ...p,
+                                minRowNumber: p.rowNumber
+                            });
+                        }
+                    });
+                }
+            } else {
+                decision.people.forEach(p => {
+                    result.autoMerged.push({
+                        people: [p],
+                        ...p,
+                        minRowNumber: p.rowNumber
+                    });
+                });
+            }
+            
+            result.autoMerged.sort((a, b) => a.minRowNumber - b.minRowNumber);
+            
+            document.getElementById('decisionModal').classList.add('hidden');
+            currentDecisionIndex++;
+            showNextDecision();
+        }
+
+        function finishProcessing() {
+            let totalOriginal = 0;
+            let totalAfterMerge = 0;
+            let totalDecisions = 0;
+
+            processedResults.forEach(result => {
+                totalOriginal += result.originalCount;
+                totalAfterMerge += result.autoMerged.length;
+            });
+
+            // Calculate how many were in decisions
+            pendingDecisions.forEach(decision => {
+                totalDecisions += decision.people.length;
+            });
+
+            let summaryHTML = '<h3>📊 סיכום עיבוד</h3>';
+            processedResults.forEach(result => {
+                const count = result.autoMerged.length;
+                const saved = result.originalCount - count;
+                summaryHTML += `<div class="summary-stat">📦 הזמנה ${result.orderNum}: ${result.originalCount} נמענים → ${count} שורות (צמצום של ${saved} שורות)</div>`;
+            });
+            
+            summaryHTML += `<div class="summary-stat" style="margin-top: 15px; font-weight: 700; color: #2e7d32; font-size: 1.15em;">✅ סה"כ: ${totalOriginal} נמענים → ${totalAfterMerge} שורות (חיסכון של ${totalOriginal - totalAfterMerge} שורות!)</div>`;
+            
+            // Verification message
+            summaryHTML += `<div class="summary-stat" style="margin-top: 15px; padding: 12px; background: #e8f5e9; border-radius: 8px; color: #1b5e20; border: 1px solid #c8e6c9;">`;
+            summaryHTML += `<strong>✓ אישור שלמות:</strong> כל ${totalOriginal} הנמענים מהרשימה המקורית נכללו ברשימת הצמצום`;
+            summaryHTML += `</div>`;
+            
+            document.getElementById('summaryBox').innerHTML = summaryHTML;
+            document.getElementById('resultsArea').classList.remove('hidden');
+            document.getElementById('statusArea').innerHTML = '<div class="status-message status-success">✅ העיבוד הושלם בהצלחה!</div>';
+        }
+
+        async function exportFile() {
+            if (processedResults.length === 0) return;
+            document.getElementById('exportStatus').innerHTML = '<div class="status-message status-info">⏳ מייצא קובץ...</div>';
+
+            try {
+                const workbook = new ExcelJS.Workbook();
+                const worksheet = workbook.addWorksheet('גיליון1');
+                worksheet.views = [{ rightToLeft: true }];
+
+                worksheet.getRow(1).values = [
+                    'ברקוד', 'שם נמען', 'מספר ת.ז', 'מספר שאילתא', 'רחוב', '', '',
+                    'עיר', '', 'אסמכתא', 'עבודה מקבילה/הערות', 'גוש', 'חלקה',
+                    'שם השולח ', 'שם מייפה הכוח (אם קיים)', 'מען של השולח',
+                    'ישוב של השולח', 'האם בחזקת מסירה(כן/ לא)', 'מספר לקוח',
+                    '2216', 'תאריך צפוי למשלוח ', '2023-08-21 00:00:00'
+                ];
+
+                const headerRow = worksheet.getRow(1);
+                headerRow.font = { name: 'David', size: 14, bold: true };
+                headerRow.alignment = { horizontal: 'right', vertical: 'middle' };
+
+                const colors = ['D8EFF4', 'FFCCCC', 'E8F5E9', 'FFF9C4', 'F3E5F5'];
+                let currentRow = 2;
+
+                processedResults.forEach((result, index) => {
+                    const color = colors[index % colors.length];
+                    
+                    result.autoMerged.forEach(rowData => {
+                        const row = worksheet.getRow(currentRow);
+                        row.getCell(2).value = rowData.name;
+                        row.getCell(3).value = rowData.id;
+                        row.getCell(4).value = rowData.query;
+                        row.getCell(5).value = rowData.address;
+                        row.getCell(8).value = rowData.city;
+                        row.getCell(10).value = result.orderNum;
+                        row.getCell(14).value = 'נענע פרסומי נדל"ן - הודעה לפי חוק התכנון ובניה';
+                        row.getCell(16).value = 'נורדאו 2';
+                        row.getCell(17).value = 'הרצליה';
+                        row.getCell(18).value = 'כן';
+
+                        for (let col = 1; col <= 22; col++) {
+                            const cell = row.getCell(col);
+                            cell.font = { name: 'David', size: 14 };
+                            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+                        }
+
+                        for (let col = 5; col <= 10; col++) {
+                            row.getCell(col).fill = {
+                                type: 'pattern',
+                                pattern: 'solid',
+                                fgColor: { argb: 'FF' + color }
+                            };
+                        }
+
+                        row.commit();
+                        currentRow++;
+                    });
+                });
+
+                worksheet.getColumn(2).width = 30;
+                worksheet.getColumn(5).width = 35;
+                worksheet.getColumn(8).width = 20;
+
+                const buffer = await workbook.xlsx.writeBuffer();
+                const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                
+                const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `צמצום_נעמי_${timestamp}.xlsx`;
+                link.click();
+
+                const totalRows = processedResults.reduce((sum, r) => sum + r.autoMerged.length, 0);
+                document.getElementById('exportStatus').innerHTML = `<div class="status-message status-success">✅ הקובץ יוצא בהצלחה! ${totalRows} שורות</div>`;
+            } catch (error) {
+                document.getElementById('exportStatus').innerHTML = `<div class="status-message status-error">❌ שגיאה בייצוא: ${error.message}</div>`;
+            }
+        }
+
+        // === Theme Color Resolution for ExcelJS ===
+        const OFFICE_THEME_COLORS = {
+            0: 'FFFFFF', 1: '000000', 2: '44546A', 3: 'E7E6E6',
+            4: '4472C4', 5: 'ED7D31', 6: 'A5A5A5', 7: 'FFC000',
+            8: '5B9BD5', 9: '70AD47'
+        };
+
+        function applyTint(hexColor, tint) {
+            let r = parseInt(hexColor.substring(0, 2), 16);
+            let g = parseInt(hexColor.substring(2, 4), 16);
+            let b = parseInt(hexColor.substring(4, 6), 16);
+            if (tint > 0) {
+                r = Math.round(r + (255 - r) * tint);
+                g = Math.round(g + (255 - g) * tint);
+                b = Math.round(b + (255 - b) * tint);
+            } else if (tint < 0) {
+                const factor = 1 + tint;
+                r = Math.round(r * factor);
+                g = Math.round(g * factor);
+                b = Math.round(b * factor);
+            }
+            const toHex = (v) => Math.max(0, Math.min(255, v)).toString(16).padStart(2, '0').toUpperCase();
+            return toHex(r) + toHex(g) + toHex(b);
+        }
+
+        function extractCellColor(cell) {
+            if (!cell.fill) return null;
+            const fill = cell.fill;
+
+            // Must be a solid pattern fill
+            if (fill.type !== 'pattern' || (fill.pattern && fill.pattern !== 'solid')) return null;
+
+            const fgColor = fill.fgColor;
+            if (!fgColor) return null;
+
+            // Case 1: Theme-based color (most common in real xlsx files)
+            if (fgColor.theme !== undefined && fgColor.theme !== null) {
+                const theme = fgColor.theme;
+                const tint = fgColor.tint || 0;
+
+                // Theme 0 (white) and theme 1 (black) are not meaningful marker colors
+                if (theme <= 1) return null;
+
+                const key = `theme_${theme}_${Math.round(tint * 10000)}`;
+                const baseHex = OFFICE_THEME_COLORS[theme] || '808080';
+                const displayHex = tint !== 0 ? applyTint(baseHex, tint) : baseHex;
+                return { key: key, display: displayHex };
+            }
+
+            // Case 2: Direct ARGB color
+            if (fgColor.argb) {
+                const hex = fgColor.argb.length > 6 ? fgColor.argb.substring(fgColor.argb.length - 6) : fgColor.argb;
+                // Ignore white, near-white, and black
+                if (hex === 'FFFFFF' || hex === '000000' || hex === 'ffffff') return null;
+                return { key: hex, display: hex };
+            }
+
+            // Case 3: Indexed color
+            if (fgColor.indexed !== undefined && fgColor.indexed !== null && fgColor.indexed !== 64) {
+                return { key: `indexed_${fgColor.indexed}`, display: '808080' };
+            }
+
+            return null;
+        }
+
+        init();
+    </script>
+</body>
+</html>
