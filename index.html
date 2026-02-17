@@ -721,8 +721,6 @@
 
                         if (!hasSimukhim && name && address && city) {
                             const colorInfo = extractCellColor(nameCell);
-                            const ownershipCell = row.getCell(10);
-                            const ownership = ownershipCell.value ? String(ownershipCell.value).trim() : '';
 
                             allPeople.push({
                                 rowNumber: rowNumber,
@@ -735,7 +733,6 @@
                                 city: city,
                                 color: colorInfo ? colorInfo.key : null,
                                 colorDisplay: colorInfo ? colorInfo.display : null,
-                                isHazaka: ownership === 'בעל חזקה',
                                 id: row.getCell(5).value || '',
                                 query: row.getCell(6).value || '',
                                 postal: row.getCell(9).value || ''
@@ -856,8 +853,6 @@
 
                         if (!hasSimukhim && name && address && city) {
                             const colorInfo = extractCellColor(nameCell);
-                            const ownershipCell = row.getCell(10);
-                            const ownership = ownershipCell.value ? String(ownershipCell.value).trim() : '';
 
                             allPeople.push({
                                 rowNumber: rowNumber,
@@ -870,7 +865,6 @@
                                 city: city,
                                 color: colorInfo ? colorInfo.key : null,
                                 colorDisplay: colorInfo ? colorInfo.display : null,
-                                isHazaka: ownership === 'בעל חזקה',
                                 id: row.getCell(5).value || '',
                                 query: row.getCell(6).value || '',
                                 postal: row.getCell(9).value || ''
@@ -967,22 +961,10 @@
             const autoMerged = [];
             const needsDecision = [];
 
-            // Step 0: Exclude "בעל חזקה" from merging - always keep as separate rows
-            people.forEach(p => {
-                if (p.isHazaka) {
-                    autoMerged.push({
-                        people: [p],
-                        ...p,
-                        minRowNumber: p.rowNumber
-                    });
-                    processed.add(p.rowNumber);
-                }
-            });
-
             // Step 1: Process exact addresses (with apartment)
             const exactGroups = {};
             people.forEach(p => {
-                if (!processed.has(p.rowNumber) && p.hasApartment) {
+                if (p.hasApartment) {
                     const key = `${p.normalizedAddress}|${p.city}`;
                     if (!exactGroups[key]) exactGroups[key] = [];
                     exactGroups[key].push(p);
