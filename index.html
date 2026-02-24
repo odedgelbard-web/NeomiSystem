@@ -928,7 +928,13 @@
                     if (hasAnyCommon) break;
                 }
 
-                if (hasAnyCommon) {
+                // בדיקת צבע זהה (גם אם אין שם משותף)
+                const apartColors = group.map(p => p.color).filter(Boolean);
+                const apartUniqueColors = [...new Set(apartColors)];
+                const hasSameColor = apartUniqueColors.length === 1 && apartColors.length === group.length;
+
+                if (hasAnyCommon || hasSameColor) {
+                    // יש שם משותף OR אותו צבע → צמצום אוטומטי
                     autoMerged.push({
                         people: group,
                         name: formatMergedName(group),
@@ -944,32 +950,11 @@
                         baseAddress: group[0].baseAddress
                     });
                     group.forEach(p => processed.add(p.rowNumber));
-                    continue;
-                }
-
-                const colors = group.map(p => p.color).filter(Boolean);
-                const uniqueColors = [...new Set(colors)];
-                if (uniqueColors.length === 1 && colors.length === group.length) {
-                    autoMerged.push({
-                        people: group,
-                        name: formatMergedName(group),
-                        address: group[0].address,
-                        city: group[0].city,
-                        id: group[0].id,
-                        query: group[0].query,
-                        postal: group[0].postal,
-                        gush: group[0].gush,
-                        helka: group[0].helka,
-                        minRowNumber: Math.min(...group.map(p => p.rowNumber)),
-                        lastName: group[0].lastName,
-                        baseAddress: group[0].baseAddress
-                    });
+                } else {
+                    // שמות שונים לחלוטין + אין צבע זהה → שאל את המפעיל
+                    needsDecision.push(group);
                     group.forEach(p => processed.add(p.rowNumber));
-                    continue;
                 }
-
-                needsDecision.push(group);
-                group.forEach(p => processed.add(p.rowNumber));
             }
 
             // Step 2: Process base addresses - ONLY for people WITHOUT apartment numbers
@@ -1018,10 +1003,12 @@
                         continue;
                     }
 
+                    // wordGroup תמיד מכיל לפחות מרכיב שם משותף אחד (כך נבנתה הקבוצה)
                     const rows = wordGroup.map(p => p.rowNumber);
                     const isProx = areRowsProximate(rows);
 
                     if (isProx) {
+                        // שורות סמוכות + שם משותף → צמצום אוטומטי
                         autoMerged.push({
                             people: wordGroup,
                             name: formatMergedName(wordGroup),
@@ -1038,28 +1025,9 @@
                         });
                         wordGroup.forEach(p => processed.add(p.rowNumber));
                     } else {
-                        const colors = wordGroup.map(p => p.color).filter(Boolean);
-                        const uniqueColors = [...new Set(colors)];
-                        if (uniqueColors.length === 1 && colors.length === wordGroup.length) {
-                            autoMerged.push({
-                                people: wordGroup,
-                                name: formatMergedName(wordGroup),
-                                address: wordGroup[0].address,
-                                city: wordGroup[0].city,
-                                id: wordGroup[0].id,
-                                query: wordGroup[0].query,
-                                postal: wordGroup[0].postal,
-                                gush: wordGroup[0].gush,
-                                helka: wordGroup[0].helka,
-                                minRowNumber: Math.min(...rows),
-                                lastName: wordGroup[0].lastName,
-                                baseAddress: wordGroup[0].baseAddress
-                            });
-                            wordGroup.forEach(p => processed.add(p.rowNumber));
-                        } else {
-                            needsDecision.push(wordGroup);
-                            wordGroup.forEach(p => processed.add(p.rowNumber));
-                        }
+                        // שורות רחוקות + שם משותף → שאל את המפעיל
+                        needsDecision.push(wordGroup);
+                        wordGroup.forEach(p => processed.add(p.rowNumber));
                     }
                 }
 
