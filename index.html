@@ -528,27 +528,14 @@
         <div class="header">
             <div class="logo">
                 <svg width="80" height="80" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-                    <!-- Background circle -->
                     <circle cx="50" cy="50" r="45" fill="#e8f5e9" stroke="#4caf50" stroke-width="2"/>
-                    
-                    <!-- Plant stem -->
                     <path d="M 50 75 Q 50 60 50 45" stroke="#2e7d32" stroke-width="3" fill="none" stroke-linecap="round"/>
-                    
-                    <!-- Left leaf -->
                     <path d="M 50 55 Q 35 50 30 45 Q 35 50 50 52" fill="#66bb6a" stroke="#2e7d32" stroke-width="1.5"/>
-                    
-                    <!-- Right leaf -->
                     <path d="M 50 55 Q 65 50 70 45 Q 65 50 50 52" fill="#66bb6a" stroke="#2e7d32" stroke-width="1.5"/>
-                    
-                    <!-- Top leaves -->
                     <path d="M 50 45 Q 40 42 35 35 Q 40 40 50 43" fill="#81c784" stroke="#2e7d32" stroke-width="1.5"/>
                     <path d="M 50 45 Q 60 42 65 35 Q 60 40 50 43" fill="#81c784" stroke="#2e7d32" stroke-width="1.5"/>
-                    
-                    <!-- Central flower/sprout -->
                     <circle cx="50" cy="35" r="8" fill="#4caf50"/>
                     <circle cx="50" cy="35" r="5" fill="#66bb6a"/>
-                    
-                    <!-- Hebrew letter נ -->
                     <text x="50" y="42" font-family="'Heebo', Arial, sans-serif" font-size="14" font-weight="bold" fill="white" text-anchor="middle" dominant-baseline="middle">נ</text>
                 </svg>
             </div>
@@ -638,7 +625,6 @@
                 dropZone.innerHTML = `<div class="drop-zone-text">${file.name}</div>`;
                 dropZone.classList.add('loaded');
                 
-                // Auto-detect 5-digit order number from filename
                 const orderInput = document.getElementById(`order-${rowId}`);
                 const match = file.name.match(/(?<!\d)(\d{5})(?!\d)/);
                 if (match && !orderInput.value.trim()) {
@@ -646,13 +632,11 @@
                     uploadSlots[rowId].orderNum = match[1];
                 }
                 
-                // Check if both file and order number exist
                 if (orderInput.value.trim()) {
                     uploadSlots[rowId].orderNum = orderInput.value.trim();
                     loadFileData(rowId);
                 }
                 
-                // Auto-add new row
                 setTimeout(() => addUploadRow(), 100);
             }
         }
@@ -660,7 +644,6 @@
         function updateOrderNum(rowId, value) {
             uploadSlots[rowId].orderNum = value.trim();
             
-            // If already loaded, update the loaded data
             if (uploadSlots[rowId].loaded) {
                 const fileData = loadedFilesData.find(f => f.filename === uploadSlots[rowId].file.name);
                 if (fileData) {
@@ -670,21 +653,16 @@
                 return;
             }
             
-            // If both file and order exist, load immediately
             if (uploadSlots[rowId].file && uploadSlots[rowId].orderNum) {
                 loadFileData(rowId);
             }
-        }
-
-        function updateLoadButton(rowId) {
-            // No longer needed - removed
         }
 
         async function loadFileData(rowId) {
             const slot = uploadSlots[rowId];
             if (!slot.file || !slot.orderNum || slot.loaded) return;
             
-            slot.loaded = true; // Mark as loaded
+            slot.loaded = true;
 
             try {
                 const arrayBuffer = await slot.file.arrayBuffer();
@@ -707,10 +685,8 @@
                         let hasSimukhim = false;
                         if (simukhimCell.value !== null && simukhimCell.value !== undefined && simukhimCell.value !== '') {
                             const val = simukhimCell.value;
-                            // Ignore Excel errors like #N/A, #REF!, #VALUE!, etc.
                             if (typeof val === 'string') {
                                 const trimmed = val.trim();
-                                // Check if it's NOT an Excel error and NOT empty
                                 if (trimmed && !trimmed.startsWith('#') && trimmed.toLowerCase() !== 'none') {
                                     hasSimukhim = true;
                                 }
@@ -721,6 +697,12 @@
 
                         if (!hasSimukhim && name && address && city) {
                             const colorInfo = extractCellColor(nameCell);
+
+                            // ===== עמודות גוש (B=2) וחלקה (C=3) =====
+                            const gushRaw = row.getCell(2).value;
+                            const helkaRaw = row.getCell(3).value;
+                            const gush = gushRaw !== null && gushRaw !== undefined ? String(gushRaw).trim() : '';
+                            const helka = helkaRaw !== null && helkaRaw !== undefined ? String(helkaRaw).trim() : '';
 
                             allPeople.push({
                                 rowNumber: rowNumber,
@@ -735,7 +717,9 @@
                                 colorDisplay: colorInfo ? colorInfo.display : null,
                                 id: row.getCell(5).value || '',
                                 query: row.getCell(6).value || '',
-                                postal: row.getCell(9).value || ''
+                                postal: row.getCell(9).value || '',
+                                gush: gush,
+                                helka: helka
                             });
                         }
                     }
@@ -750,10 +734,8 @@
 
                 updateLoadedFilesList();
                 
-                // Don't remove the row anymore - just mark as loaded
                 const dropZone = document.getElementById(`dropzone-${rowId}`);
                 if (dropZone) dropZone.style.pointerEvents = 'none';
-                // Keep order input editable - don't disable it
                 
             } catch (error) {
                 alert('שגיאה בקריאת הקובץ: ' + error.message);
@@ -776,10 +758,41 @@
             return address.replace(/[-,]\s*\d+$/, '').trim();
         }
 
+        // ===== פונקציות Fuzzy Matching =====
+
+        function levenshtein(a, b) {
+            const dp = Array.from({ length: a.length + 1 }, (_, i) =>
+                Array.from({ length: b.length + 1 }, (_, j) => i === 0 ? j : j === 0 ? i : 0)
+            );
+            for (let i = 1; i <= a.length; i++) {
+                for (let j = 1; j <= b.length; j++) {
+                    dp[i][j] = a[i - 1] === b[j - 1]
+                        ? dp[i - 1][j - 1]
+                        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+                }
+            }
+            return dp[a.length][b.length];
+        }
+
+        function wordsAreSimilar(w1, w2) {
+            if (w1 === w2) return true;
+            const maxLen = Math.max(w1.length, w2.length);
+            if (maxLen < 3) return false;
+            // מרחק 1 למילים קצרות, מרחק 2 למילים ארוכות (7+ אותיות)
+            const threshold = maxLen >= 7 ? 2 : 1;
+            return levenshtein(w1, w2) <= threshold;
+        }
+
         function hasCommonWord(name1, name2) {
+            // בדיקת שם משפחה (מילה ראשונה) — כולל שמות קצרים כמו "פז"
+            const lastName1 = name1.split(' ')[0];
+            const lastName2 = name2.split(' ')[0];
+            if (lastName1.length >= 2 && wordsAreSimilar(lastName1, lastName2)) return true;
+
+            // בדיקת כל המילים עם fuzzy matching
             const words1 = name1.split(' ').filter(w => w.length > 2);
             const words2 = name2.split(' ').filter(w => w.length > 2);
-            return words1.some(w1 => words2.some(w2 => w1 === w2));
+            return words1.some(w1 => words2.some(w2 => wordsAreSimilar(w1, w2)));
         }
 
         function areRowsProximate(rows) {
@@ -801,8 +814,8 @@
             if (allSameLastName) {
                 const firstNames = people.map(p => {
                     const parts = p.name.split(' ');
-                    parts.shift(); // Remove last name
-                    return parts.join(' ').replace(/^(כהן|לוי|מלכה)\s+/, ''); // Remove duplicate family names
+                    parts.shift();
+                    return parts.join(' ').replace(/^(כהן|לוי|מלכה)\s+/, '');
                 }).filter(Boolean);
                 
                 if (firstNames.length === 0) return lastName;
@@ -812,80 +825,6 @@
             }
             
             return people.map(p => p.name).join(' ו');
-        }
-
-        async function loadFile(rowId) {
-            const slot = uploadSlots[rowId];
-            if (!slot.file || !slot.orderNum) return;
-
-            try {
-                const arrayBuffer = await slot.file.arrayBuffer();
-                const workbook = new ExcelJS.Workbook();
-                await workbook.xlsx.load(arrayBuffer);
-                const worksheet = workbook.getWorksheet(1);
-                const allPeople = [];
-
-                worksheet.eachRow((row, rowNumber) => {
-                    if (rowNumber >= 20) {
-                        const nameCell = row.getCell(4);
-                        const addressCell = row.getCell(7);
-                        const cityCell = row.getCell(8);
-                        const simukhimCell = row.getCell(11);
-
-                        const name = nameCell.value ? String(nameCell.value).trim() : '';
-                        const address = addressCell.value ? String(addressCell.value).trim() : '';
-                        const city = cityCell.value ? String(cityCell.value).trim() : '';
-                        
-                        let hasSimukhim = false;
-                        if (simukhimCell.value !== null && simukhimCell.value !== undefined && simukhimCell.value !== '') {
-                            const val = simukhimCell.value;
-                            // Ignore Excel errors like #N/A, #REF!, #VALUE!, etc.
-                            if (typeof val === 'string') {
-                                const trimmed = val.trim();
-                                // Check if it's NOT an Excel error and NOT empty
-                                if (trimmed && !trimmed.startsWith('#') && trimmed.toLowerCase() !== 'none') {
-                                    hasSimukhim = true;
-                                }
-                            } else if (typeof val === 'number') {
-                                hasSimukhim = true;
-                            }
-                        }
-
-                        if (!hasSimukhim && name && address && city) {
-                            const colorInfo = extractCellColor(nameCell);
-
-                            allPeople.push({
-                                rowNumber: rowNumber,
-                                name: name,
-                                lastName: getLastName(name),
-                                address: address,
-                                normalizedAddress: normalizeAddress(address),
-                                baseAddress: getBaseAddress(normalizeAddress(address)),
-                                hasApartment: hasApartmentNumber(address),
-                                city: city,
-                                color: colorInfo ? colorInfo.key : null,
-                                colorDisplay: colorInfo ? colorInfo.display : null,
-                                id: row.getCell(5).value || '',
-                                query: row.getCell(6).value || '',
-                                postal: row.getCell(9).value || ''
-                            });
-                        }
-                    }
-                });
-
-                loadedFilesData.push({
-                    filename: slot.file.name,
-                    orderNum: slot.orderNum,
-                    people: allPeople,
-                    originalCount: allPeople.length
-                });
-
-                updateLoadedFilesList();
-                document.getElementById(`row-${rowId}`).remove();
-                uploadSlots[rowId] = null;
-            } catch (error) {
-                alert('שגיאה בקריאת הקובץ: ' + error.message);
-            }
         }
 
         function updateLoadedFilesList() {
@@ -907,12 +846,8 @@
             const loadedFilesSection = document.getElementById('loadedFiles');
             if (loadedFilesData.length > 0) {
                 loadedFilesSection.classList.remove('hidden');
-                
-                // Enable prepare button
                 const prepareBtn = document.getElementById('prepareBtn');
-                if (prepareBtn) {
-                    prepareBtn.disabled = false;
-                }
+                if (prepareBtn) prepareBtn.disabled = false;
             } else {
                 loadedFilesSection.classList.add('hidden');
             }
@@ -973,7 +908,6 @@
 
             for (const [key, group] of Object.entries(exactGroups)) {
                 if (group.length === 1) {
-                    // Single person in this exact apartment - add as is
                     autoMerged.push({
                         people: [group[0]],
                         ...group[0],
@@ -983,7 +917,6 @@
                     continue;
                 }
 
-                // Multiple people in SAME apartment - check common word
                 let hasAnyCommon = false;
                 for (let i = 0; i < group.length - 1; i++) {
                     for (let j = i + 1; j < group.length; j++) {
@@ -996,7 +929,6 @@
                 }
 
                 if (hasAnyCommon) {
-                    // AUTO MERGE - has common word
                     autoMerged.push({
                         people: group,
                         name: formatMergedName(group),
@@ -1005,6 +937,8 @@
                         id: group[0].id,
                         query: group[0].query,
                         postal: group[0].postal,
+                        gush: group[0].gush,
+                        helka: group[0].helka,
                         minRowNumber: Math.min(...group.map(p => p.rowNumber)),
                         lastName: group[0].lastName,
                         baseAddress: group[0].baseAddress
@@ -1013,11 +947,9 @@
                     continue;
                 }
 
-                // No common word - check same color
                 const colors = group.map(p => p.color).filter(Boolean);
                 const uniqueColors = [...new Set(colors)];
                 if (uniqueColors.length === 1 && colors.length === group.length) {
-                    // AUTO MERGE - same color
                     autoMerged.push({
                         people: group,
                         name: formatMergedName(group),
@@ -1026,6 +958,8 @@
                         id: group[0].id,
                         query: group[0].query,
                         postal: group[0].postal,
+                        gush: group[0].gush,
+                        helka: group[0].helka,
                         minRowNumber: Math.min(...group.map(p => p.rowNumber)),
                         lastName: group[0].lastName,
                         baseAddress: group[0].baseAddress
@@ -1034,7 +968,6 @@
                     continue;
                 }
 
-                // ASK USER
                 needsDecision.push(group);
                 group.forEach(p => processed.add(p.rowNumber));
             }
@@ -1060,7 +993,6 @@
                     continue;
                 }
 
-                // Group by common words
                 const wordGroups = [];
                 const usedIndices = new Set();
 
@@ -1072,8 +1004,6 @@
                     
                     for (let j = i + 1; j < group.length; j++) {
                         if (usedIndices.has(j)) continue;
-                        
-                        // Check if j has common word with anyone in currentGroup
                         if (currentGroup.some(p => hasCommonWord(p.name, group[j].name))) {
                             currentGroup.push(group[j]);
                             usedIndices.add(j);
@@ -1083,19 +1013,15 @@
                     wordGroups.push(currentGroup);
                 }
 
-                // Process each word group
                 for (const wordGroup of wordGroups) {
                     if (wordGroup.length === 1) {
-                        // Don't add singles yet - collect them for color check below
                         continue;
                     }
 
-                    // Multiple people with common word
                     const rows = wordGroup.map(p => p.rowNumber);
                     const isProx = areRowsProximate(rows);
 
                     if (isProx) {
-                        // AUTO MERGE - proximate
                         autoMerged.push({
                             people: wordGroup,
                             name: formatMergedName(wordGroup),
@@ -1104,17 +1030,17 @@
                             id: wordGroup[0].id,
                             query: wordGroup[0].query,
                             postal: wordGroup[0].postal,
+                            gush: wordGroup[0].gush,
+                            helka: wordGroup[0].helka,
                             minRowNumber: Math.min(...rows),
                             lastName: wordGroup[0].lastName,
                             baseAddress: wordGroup[0].baseAddress
                         });
                         wordGroup.forEach(p => processed.add(p.rowNumber));
                     } else {
-                        // Not proximate - check color
                         const colors = wordGroup.map(p => p.color).filter(Boolean);
                         const uniqueColors = [...new Set(colors)];
                         if (uniqueColors.length === 1 && colors.length === wordGroup.length) {
-                            // AUTO MERGE - same color
                             autoMerged.push({
                                 people: wordGroup,
                                 name: formatMergedName(wordGroup),
@@ -1123,23 +1049,22 @@
                                 id: wordGroup[0].id,
                                 query: wordGroup[0].query,
                                 postal: wordGroup[0].postal,
+                                gush: wordGroup[0].gush,
+                                helka: wordGroup[0].helka,
                                 minRowNumber: Math.min(...rows),
                                 lastName: wordGroup[0].lastName,
                                 baseAddress: wordGroup[0].baseAddress
                             });
                             wordGroup.forEach(p => processed.add(p.rowNumber));
                         } else {
-                            // ASK USER
                             needsDecision.push(wordGroup);
                             wordGroup.forEach(p => processed.add(p.rowNumber));
                         }
                     }
                 }
 
-                // Color-based merge for singles: collect unprocessed singles from this base address group
                 const remainingSingles = group.filter(p => !processed.has(p.rowNumber));
                 if (remainingSingles.length > 1) {
-                    // Group remaining singles by color
                     const colorGroups = {};
                     const noColorSingles = [];
                     remainingSingles.forEach(p => {
@@ -1151,10 +1076,8 @@
                         }
                     });
 
-                    // Merge singles that share the same color
                     for (const [colorKey, colorGroup] of Object.entries(colorGroups)) {
                         if (colorGroup.length > 1) {
-                            // AUTO MERGE - same base address + same color
                             autoMerged.push({
                                 people: colorGroup,
                                 name: formatMergedName(colorGroup),
@@ -1163,13 +1086,14 @@
                                 id: colorGroup[0].id,
                                 query: colorGroup[0].query,
                                 postal: colorGroup[0].postal,
+                                gush: colorGroup[0].gush,
+                                helka: colorGroup[0].helka,
                                 minRowNumber: Math.min(...colorGroup.map(p => p.rowNumber)),
                                 lastName: colorGroup[0].lastName,
                                 baseAddress: colorGroup[0].baseAddress
                             });
                             colorGroup.forEach(p => processed.add(p.rowNumber));
                         } else {
-                            // Single with color but no match - add as is
                             autoMerged.push({
                                 people: [colorGroup[0]],
                                 ...colorGroup[0],
@@ -1179,7 +1103,6 @@
                         }
                     }
 
-                    // Add remaining no-color singles
                     noColorSingles.forEach(p => {
                         if (!processed.has(p.rowNumber)) {
                             autoMerged.push({
@@ -1191,7 +1114,6 @@
                         }
                     });
                 } else {
-                    // Only 0 or 1 remaining single - add as is
                     remainingSingles.forEach(p => {
                         if (!processed.has(p.rowNumber)) {
                             autoMerged.push({
@@ -1205,7 +1127,6 @@
                 }
             }
 
-            // Add any remaining people who have apartments but were singles
             people.forEach(p => {
                 if (!processed.has(p.rowNumber)) {
                     autoMerged.push({
@@ -1245,11 +1166,9 @@
             const uniqueColors = [...new Set(colors)];
             const hasSameColor = uniqueColors.length === 1 && colors.length === decision.people.length;
             
-            // Get display color for the notice
             const displayColors = decision.people.map(p => p.colorDisplay).filter(Boolean);
             const displayColor = displayColors.length > 0 ? displayColors[0] : null;
             
-            // Check if addresses are different
             const addresses = [...new Set(decision.people.map(p => p.address))];
             const hasDifferentAddresses = addresses.length > 1;
             
@@ -1285,7 +1204,6 @@
                 html += `</div>`;
             });
             
-            // Add address selection if needed
             if (hasDifferentAddresses) {
                 html += '<div style="margin-top: 20px; padding: 15px; background: #e8f5e9; border: 1px solid #c8e6c9; border-radius: 8px;">';
                 html += '<div style="font-weight: 600; margin-bottom: 12px; color: #2e7d32; font-size: 1em;">בחר כתובת לרשימת הצמצום:</div>';
@@ -1320,23 +1238,22 @@
                 });
                 
                 if (selected.length > 0) {
-                    // Get selected address if available
                     let selectedAddress = selected[0].address;
                     const addressRadios = document.querySelectorAll('input[name="selectedAddress"]');
                     addressRadios.forEach(radio => {
-                        if (radio.checked) {
-                            selectedAddress = radio.value;
-                        }
+                        if (radio.checked) selectedAddress = radio.value;
                     });
                     
                     result.autoMerged.push({
                         people: selected,
                         name: formatMergedName(selected),
-                        address: selectedAddress,  // Use selected address
+                        address: selectedAddress,
                         city: selected[0].city,
                         id: selected[0].id,
                         query: selected[0].query,
                         postal: selected[0].postal,
+                        gush: selected[0].gush,
+                        helka: selected[0].helka,
                         minRowNumber: Math.min(...selected.map(p => p.rowNumber))
                     });
                     
@@ -1370,16 +1287,10 @@
         function finishProcessing() {
             let totalOriginal = 0;
             let totalAfterMerge = 0;
-            let totalDecisions = 0;
 
             processedResults.forEach(result => {
                 totalOriginal += result.originalCount;
                 totalAfterMerge += result.autoMerged.length;
-            });
-
-            // Calculate how many were in decisions
-            pendingDecisions.forEach(decision => {
-                totalDecisions += decision.people.length;
             });
 
             let summaryHTML = '<h3>📊 סיכום עיבוד</h3>';
@@ -1390,8 +1301,6 @@
             });
             
             summaryHTML += `<div class="summary-stat" style="margin-top: 15px; font-weight: 700; color: #2e7d32; font-size: 1.15em;">✅ סה"כ: ${totalOriginal} נמענים → ${totalAfterMerge} שורות (חיסכון של ${totalOriginal - totalAfterMerge} שורות!)</div>`;
-            
-            // Verification message
             summaryHTML += `<div class="summary-stat" style="margin-top: 15px; padding: 12px; background: #e8f5e9; border-radius: 8px; color: #1b5e20; border: 1px solid #c8e6c9;">`;
             summaryHTML += `<strong>✓ אישור שלמות:</strong> כל ${totalOriginal} הנמענים מהרשימה המקורית נכללו ברשימת הצמצום`;
             summaryHTML += `</div>`;
@@ -1436,6 +1345,9 @@
                         row.getCell(5).value = rowData.address;
                         row.getCell(8).value = rowData.city;
                         row.getCell(10).value = result.orderNum;
+                        // ===== גוש וחלקה =====
+                        row.getCell(12).value = rowData.gush || '';
+                        row.getCell(13).value = rowData.helka || '';
                         row.getCell(14).value = 'נענע פרסומי נדל"ן - הודעה לפי חוק התכנון ובניה';
                         row.getCell(16).value = 'נורדאו 2';
                         row.getCell(17).value = 'הרצליה';
@@ -1509,35 +1421,27 @@
             if (!cell.fill) return null;
             const fill = cell.fill;
 
-            // Must be a solid pattern fill
             if (fill.type !== 'pattern' || (fill.pattern && fill.pattern !== 'solid')) return null;
 
             const fgColor = fill.fgColor;
             if (!fgColor) return null;
 
-            // Case 1: Theme-based color (most common in real xlsx files)
             if (fgColor.theme !== undefined && fgColor.theme !== null) {
                 const theme = fgColor.theme;
                 const tint = fgColor.tint || 0;
-
-                // Theme 0 (white) and theme 1 (black) are not meaningful marker colors
                 if (theme <= 1) return null;
-
                 const key = `theme_${theme}_${Math.round(tint * 10000)}`;
                 const baseHex = OFFICE_THEME_COLORS[theme] || '808080';
                 const displayHex = tint !== 0 ? applyTint(baseHex, tint) : baseHex;
                 return { key: key, display: displayHex };
             }
 
-            // Case 2: Direct ARGB color
             if (fgColor.argb) {
                 const hex = fgColor.argb.length > 6 ? fgColor.argb.substring(fgColor.argb.length - 6) : fgColor.argb;
-                // Ignore white, near-white, and black
                 if (hex === 'FFFFFF' || hex === '000000' || hex === 'ffffff') return null;
                 return { key: hex, display: hex };
             }
 
-            // Case 3: Indexed color
             if (fgColor.indexed !== undefined && fgColor.indexed !== null && fgColor.indexed !== 64) {
                 return { key: `indexed_${fgColor.indexed}`, display: '808080' };
             }
