@@ -682,15 +682,21 @@
                         const address = addressCell.value ? String(addressCell.value).trim() : '';
                         const city = cityCell.value ? String(cityCell.value).trim() : '';
                         
+                        // ===== FIX: טיפול בנוסחאות בעמודת סימוכין =====
                         let hasSimukhim = false;
-                        if (simukhimCell.value !== null && simukhimCell.value !== undefined && simukhimCell.value !== '') {
-                            const val = simukhimCell.value;
-                            if (typeof val === 'string') {
-                                const trimmed = val.trim();
+                        const rawSim = simukhimCell.value;
+                        if (rawSim !== null && rawSim !== undefined && rawSim !== '') {
+                            let simVal = rawSim;
+                            // אם זו תא נוסחה, חלץ את ערך התוצאה
+                            if (typeof simVal === 'object' && simVal !== null && 'result' in simVal) {
+                                simVal = simVal.result;
+                            }
+                            if (typeof simVal === 'string') {
+                                const trimmed = simVal.trim();
                                 if (trimmed && !trimmed.startsWith('#') && trimmed.toLowerCase() !== 'none') {
                                     hasSimukhim = true;
                                 }
-                            } else if (typeof val === 'number') {
+                            } else if (typeof simVal === 'number') {
                                 hasSimukhim = true;
                             }
                         }
@@ -698,7 +704,6 @@
                         if (!hasSimukhim && name && address && city) {
                             const colorInfo = extractCellColor(nameCell);
 
-                            // ===== עמודות גוש (B=2) וחלקה (C=3) =====
                             const gushRaw = row.getCell(2).value;
                             const helkaRaw = row.getCell(3).value;
                             const gush = gushRaw !== null && gushRaw !== undefined ? String(gushRaw).trim() : '';
@@ -778,20 +783,15 @@
             if (w1 === w2) return true;
             const maxLen = Math.max(w1.length, w2.length);
             if (maxLen < 3) return false;
-            // מרחק 1 למילים קצרות, מרחק 2 למילים ארוכות (7+ אותיות)
             const threshold = maxLen >= 7 ? 2 : 1;
             return levenshtein(w1, w2) <= threshold;
         }
 
+        // ===== FIX: hasCommonWord מבוסס על מיקום שורות בלבד דרך הלוגיקה החדשה =====
+        // הפונקציה הזו בודקת אם יש מילה משותפת כלשהי (fuzzy) בין שני שמות
         function hasCommonWord(name1, name2) {
-            // בדיקת שם משפחה (מילה ראשונה) — כולל שמות קצרים כמו "פז"
-            const lastName1 = name1.split(' ')[0];
-            const lastName2 = name2.split(' ')[0];
-            if (lastName1.length >= 2 && wordsAreSimilar(lastName1, lastName2)) return true;
-
-            // בדיקת כל המילים עם fuzzy matching
-            const words1 = name1.split(' ').filter(w => w.length > 2);
-            const words2 = name2.split(' ').filter(w => w.length > 2);
+            const words1 = name1.split(' ').filter(w => w.length > 1);
+            const words2 = name2.split(' ').filter(w => w.length > 1);
             return words1.some(w1 => words2.some(w2 => wordsAreSimilar(w1, w2)));
         }
 
@@ -896,7 +896,7 @@
             const autoMerged = [];
             const needsDecision = [];
 
-            // Step 1: Process exact addresses (with apartment)
+            // ===== Step 1: כתובות עם דירה ספציפית =====
             const exactGroups = {};
             people.forEach(p => {
                 if (p.hasApartment) {
@@ -908,33 +908,23 @@
 
             for (const [key, group] of Object.entries(exactGroups)) {
                 if (group.length === 1) {
-                    autoMerged.push({
-                        people: [group[0]],
-                        ...group[0],
-                        minRowNumber: group[0].rowNumber
-                    });
+                    autoMerged.push({ people: [group[0]], ...group[0], minRowNumber: group[0].rowNumber });
                     processed.add(group[0].rowNumber);
                     continue;
                 }
 
                 let hasAnyCommon = false;
-                for (let i = 0; i < group.length - 1; i++) {
-                    for (let j = i + 1; j < group.length; j++) {
-                        if (hasCommonWord(group[i].name, group[j].name)) {
-                            hasAnyCommon = true;
-                            break;
-                        }
+                for (let i = 0; i < group.length - 1 && !hasAnyCommon; i++) {
+                    for (let j = i + 1; j < group.length && !hasAnyCommon; j++) {
+                        if (hasCommonWord(group[i].name, group[j].name)) hasAnyCommon = true;
                     }
-                    if (hasAnyCommon) break;
                 }
 
-                // בדיקת צבע זהה (גם אם אין שם משותף)
                 const apartColors = group.map(p => p.color).filter(Boolean);
                 const apartUniqueColors = [...new Set(apartColors)];
                 const hasSameColor = apartUniqueColors.length === 1 && apartColors.length === group.length;
 
                 if (hasAnyCommon || hasSameColor) {
-                    // יש שם משותף OR אותו צבע → צמצום אוטומטי
                     autoMerged.push({
                         people: group,
                         name: formatMergedName(group),
@@ -951,13 +941,12 @@
                     });
                     group.forEach(p => processed.add(p.rowNumber));
                 } else {
-                    // שמות שונים לחלוטין + אין צבע זהה → שאל את המפעיל
                     needsDecision.push(group);
                     group.forEach(p => processed.add(p.rowNumber));
                 }
             }
 
-            // Step 2: Process base addresses - ONLY for people WITHOUT apartment numbers
+            // ===== Step 2: כתובות בסיס — קיבוץ עוקב-זוגי =====
             const baseGroups = {};
             people.forEach(p => {
                 if (!processed.has(p.rowNumber) && !p.hasApartment) {
@@ -969,139 +958,142 @@
 
             for (const [key, group] of Object.entries(baseGroups)) {
                 if (group.length === 1) {
-                    autoMerged.push({
-                        people: [group[0]],
-                        ...group[0],
-                        minRowNumber: group[0].rowNumber
-                    });
+                    autoMerged.push({ people: [group[0]], ...group[0], minRowNumber: group[0].rowNumber });
                     processed.add(group[0].rowNumber);
                     continue;
                 }
 
-                const wordGroups = [];
-                const usedIndices = new Set();
+                const sorted = [...group].sort((a, b) => a.rowNumber - b.rowNumber);
 
-                for (let i = 0; i < group.length; i++) {
-                    if (usedIndices.has(i)) continue;
-                    
-                    const currentGroup = [group[i]];
-                    usedIndices.add(i);
-                    
-                    for (let j = i + 1; j < group.length; j++) {
-                        if (usedIndices.has(j)) continue;
-                        if (currentGroup.some(p => hasCommonWord(p.name, group[j].name))) {
-                            currentGroup.push(group[j]);
-                            usedIndices.add(j);
-                        }
-                    }
-                    
-                    wordGroups.push(currentGroup);
-                }
+                // שלב א: קיבוץ עוקב-זוגי —
+                // קבוצה מתרחבת רק אם האיש החדש חולק מילה עם קודמו הישיר + בטווח שורות.
+                // ברגע שאין התאמה — הקבוצה נסגרת ומתחילה חדשה.
+                // כך נמנעת שרשרת-ענק שגורמת לאחוד כל הרחוב.
+                const consecutiveGroups = [];
+                let curGroup = [sorted[0]];
 
-                for (const wordGroup of wordGroups) {
-                    if (wordGroup.length === 1) {
-                        continue;
-                    }
+                for (let i = 1; i < sorted.length; i++) {
+                    const prev = sorted[i - 1];
+                    const curr = sorted[i];
+                    const rowDiff = curr.rowNumber - prev.rowNumber;
 
-                    // wordGroup תמיד מכיל לפחות מרכיב שם משותף אחד (כך נבנתה הקבוצה)
-                    const rows = wordGroup.map(p => p.rowNumber);
-                    const isProx = areRowsProximate(rows);
-
-                    if (isProx) {
-                        // שורות סמוכות + שם משותף → צמצום אוטומטי
-                        autoMerged.push({
-                            people: wordGroup,
-                            name: formatMergedName(wordGroup),
-                            address: wordGroup[0].address,
-                            city: wordGroup[0].city,
-                            id: wordGroup[0].id,
-                            query: wordGroup[0].query,
-                            postal: wordGroup[0].postal,
-                            gush: wordGroup[0].gush,
-                            helka: wordGroup[0].helka,
-                            minRowNumber: Math.min(...rows),
-                            lastName: wordGroup[0].lastName,
-                            baseAddress: wordGroup[0].baseAddress
-                        });
-                        wordGroup.forEach(p => processed.add(p.rowNumber));
+                    if (rowDiff <= PROXIMITY_THRESHOLD && hasCommonWord(curr.name, prev.name)) {
+                        // קרוב + מילה משותפת עם הקודם הישיר → המשך קבוצה
+                        curGroup.push(curr);
                     } else {
-                        // שורות רחוקות + שם משותף → שאל את המפעיל
-                        needsDecision.push(wordGroup);
-                        wordGroup.forEach(p => processed.add(p.rowNumber));
+                        consecutiveGroups.push(curGroup);
+                        curGroup = [curr];
+                    }
+                }
+                consecutiveGroups.push(curGroup);
+
+                // שלב ב: קבוצות גדולות → צמצום אוטומטי; סינגלטונים → לשלב ג
+                const singletons = [];
+
+                for (const cg of consecutiveGroups) {
+                    if (cg.length > 1) {
+                        // קרובים + מילה משותפת (כבר אומת) → צמצום אוטומטי
+                        autoMerged.push({
+                            people: cg,
+                            name: formatMergedName(cg),
+                            address: cg[0].address,
+                            city: cg[0].city,
+                            id: cg[0].id,
+                            query: cg[0].query,
+                            postal: cg[0].postal,
+                            gush: cg[0].gush,
+                            helka: cg[0].helka,
+                            minRowNumber: Math.min(...cg.map(p => p.rowNumber)),
+                            lastName: cg[0].lastName,
+                            baseAddress: cg[0].baseAddress
+                        });
+                        cg.forEach(p => processed.add(p.rowNumber));
+                    } else {
+                        singletons.push(cg[0]);
                     }
                 }
 
-                const remainingSingles = group.filter(p => !processed.has(p.rowNumber));
-                if (remainingSingles.length > 1) {
-                    const colorGroups = {};
-                    const noColorSingles = [];
-                    remainingSingles.forEach(p => {
-                        if (p.color) {
-                            if (!colorGroups[p.color]) colorGroups[p.color] = [];
-                            colorGroups[p.color].push(p);
-                        } else {
-                            noColorSingles.push(p);
-                        }
-                    });
+                // שלב ג: סינגלטונים — חיפוש שם משותף רחוק → שאל משתמש
+                if (singletons.length > 0) {
+                    const usedSingletons = new Set();
 
-                    for (const [colorKey, colorGroup] of Object.entries(colorGroups)) {
-                        if (colorGroup.length > 1) {
-                            autoMerged.push({
-                                people: colorGroup,
-                                name: formatMergedName(colorGroup),
-                                address: colorGroup[0].address,
-                                city: colorGroup[0].city,
-                                id: colorGroup[0].id,
-                                query: colorGroup[0].query,
-                                postal: colorGroup[0].postal,
-                                gush: colorGroup[0].gush,
-                                helka: colorGroup[0].helka,
-                                minRowNumber: Math.min(...colorGroup.map(p => p.rowNumber)),
-                                lastName: colorGroup[0].lastName,
-                                baseAddress: colorGroup[0].baseAddress
-                            });
-                            colorGroup.forEach(p => processed.add(p.rowNumber));
-                        } else {
-                            autoMerged.push({
-                                people: [colorGroup[0]],
-                                ...colorGroup[0],
-                                minRowNumber: colorGroup[0].rowNumber
-                            });
-                            processed.add(colorGroup[0].rowNumber);
+                    for (let i = 0; i < singletons.length; i++) {
+                        if (usedSingletons.has(i)) continue;
+
+                        const matchGroup = [singletons[i]];
+                        usedSingletons.add(i);
+
+                        for (let j = i + 1; j < singletons.length; j++) {
+                            if (usedSingletons.has(j)) continue;
+                            if (matchGroup.some(p => hasCommonWord(p.name, singletons[j].name))) {
+                                matchGroup.push(singletons[j]);
+                                usedSingletons.add(j);
+                            }
                         }
+
+                        if (matchGroup.length > 1) {
+                            // שם משותף אך לא ברצף → שאל משתמש
+                            needsDecision.push(matchGroup);
+                            matchGroup.forEach(p => processed.add(p.rowNumber));
+                        }
+                        // אין התאמה → נשאר לטיפול בצבע
                     }
 
-                    noColorSingles.forEach(p => {
-                        if (!processed.has(p.rowNumber)) {
-                            autoMerged.push({
-                                people: [p],
-                                ...p,
-                                minRowNumber: p.rowNumber
-                            });
-                            processed.add(p.rowNumber);
+                    // שלב ד: סינגלטונים שנותרו → קיבוץ לפי צבע
+                    const remainingSingles = singletons.filter(p => !processed.has(p.rowNumber));
+
+                    if (remainingSingles.length > 1) {
+                        const colorGroups = {};
+                        const noColorSingles = [];
+
+                        remainingSingles.forEach(p => {
+                            if (p.color) {
+                                if (!colorGroups[p.color]) colorGroups[p.color] = [];
+                                colorGroups[p.color].push(p);
+                            } else {
+                                noColorSingles.push(p);
+                            }
+                        });
+
+                        for (const [colorKey, colorGroup] of Object.entries(colorGroups)) {
+                            if (colorGroup.length > 1) {
+                                autoMerged.push({
+                                    people: colorGroup,
+                                    name: formatMergedName(colorGroup),
+                                    address: colorGroup[0].address,
+                                    city: colorGroup[0].city,
+                                    id: colorGroup[0].id,
+                                    query: colorGroup[0].query,
+                                    postal: colorGroup[0].postal,
+                                    gush: colorGroup[0].gush,
+                                    helka: colorGroup[0].helka,
+                                    minRowNumber: Math.min(...colorGroup.map(p => p.rowNumber)),
+                                    lastName: colorGroup[0].lastName,
+                                    baseAddress: colorGroup[0].baseAddress
+                                });
+                                colorGroup.forEach(p => processed.add(p.rowNumber));
+                            } else {
+                                autoMerged.push({ people: [colorGroup[0]], ...colorGroup[0], minRowNumber: colorGroup[0].rowNumber });
+                                processed.add(colorGroup[0].rowNumber);
+                            }
                         }
-                    });
-                } else {
-                    remainingSingles.forEach(p => {
-                        if (!processed.has(p.rowNumber)) {
-                            autoMerged.push({
-                                people: [p],
-                                ...p,
-                                minRowNumber: p.rowNumber
-                            });
+
+                        noColorSingles.forEach(p => {
+                            autoMerged.push({ people: [p], ...p, minRowNumber: p.rowNumber });
                             processed.add(p.rowNumber);
-                        }
-                    });
+                        });
+
+                    } else if (remainingSingles.length === 1) {
+                        autoMerged.push({ people: [remainingSingles[0]], ...remainingSingles[0], minRowNumber: remainingSingles[0].rowNumber });
+                        processed.add(remainingSingles[0].rowNumber);
+                    }
                 }
             }
 
+            // כל מי שנשאר (לא טופל)
             people.forEach(p => {
                 if (!processed.has(p.rowNumber)) {
-                    autoMerged.push({
-                        people: [p],
-                        ...p,
-                        minRowNumber: p.rowNumber
-                    });
+                    autoMerged.push({ people: [p], ...p, minRowNumber: p.rowNumber });
                     processed.add(p.rowNumber);
                 }
             });
@@ -1227,21 +1219,13 @@
                     
                     decision.people.forEach(p => {
                         if (!selected.includes(p)) {
-                            result.autoMerged.push({
-                                people: [p],
-                                ...p,
-                                minRowNumber: p.rowNumber
-                            });
+                            result.autoMerged.push({ people: [p], ...p, minRowNumber: p.rowNumber });
                         }
                     });
                 }
             } else {
                 decision.people.forEach(p => {
-                    result.autoMerged.push({
-                        people: [p],
-                        ...p,
-                        minRowNumber: p.rowNumber
-                    });
+                    result.autoMerged.push({ people: [p], ...p, minRowNumber: p.rowNumber });
                 });
             }
             
@@ -1287,9 +1271,10 @@
                 const worksheet = workbook.addWorksheet('גיליון1');
                 worksheet.views = [{ rightToLeft: true }];
 
+                // ===== FIX: הוספת כותרת "מיקוד" לעמודה I (9) =====
                 worksheet.getRow(1).values = [
                     'ברקוד', 'שם נמען', 'מספר ת.ז', 'מספר שאילתא', 'רחוב', '', '',
-                    'עיר', '', 'אסמכתא', 'עבודה מקבילה/הערות', 'גוש', 'חלקה',
+                    'עיר', 'מיקוד', 'אסמכתא', 'עבודה מקבילה/הערות', 'גוש', 'חלקה',
                     'שם השולח ', 'שם מייפה הכוח (אם קיים)', 'מען של השולח',
                     'ישוב של השולח', 'האם בחזקת מסירה(כן/ לא)', 'מספר לקוח',
                     '2216', 'תאריך צפוי למשלוח ', '2023-08-21 00:00:00'
@@ -1312,10 +1297,21 @@
                         row.getCell(4).value = rowData.query;
                         row.getCell(5).value = rowData.address;
                         row.getCell(8).value = rowData.city;
-                        row.getCell(10).value = result.orderNum;
-                        // ===== גוש וחלקה =====
-                        row.getCell(12).value = rowData.gush || '';
-                        row.getCell(13).value = rowData.helka || '';
+                        row.getCell(9).value = rowData.postal || '';
+
+                        // ===== FIX: המרה בטוחה למספר — רק אם כל המחרוזת היא מספר שלם =====
+                        const orderVal = String(result.orderNum).trim();
+                        const orderNum = parseInt(orderVal, 10);
+                        row.getCell(10).value = (!isNaN(orderNum) && String(orderNum) === orderVal) ? orderNum : orderVal;
+
+                        // ===== המרה בטוחה לגוש וחלקה =====
+                        const gushVal = String(rowData.gush || '').trim();
+                        const gushNum = parseInt(gushVal, 10);
+                        row.getCell(12).value = gushVal && !isNaN(gushNum) && String(gushNum) === gushVal ? gushNum : (gushVal || '');
+
+                        const helkaVal = String(rowData.helka || '').trim();
+                        const helkaNum = parseInt(helkaVal, 10);
+                        row.getCell(13).value = helkaVal && !isNaN(helkaNum) && String(helkaNum) === helkaVal ? helkaNum : (helkaVal || '');
                         row.getCell(14).value = 'נענע פרסומי נדל"ן - הודעה לפי חוק התכנון ובניה';
                         row.getCell(16).value = 'נורדאו 2';
                         row.getCell(17).value = 'הרצליה';
@@ -1327,7 +1323,8 @@
                             cell.alignment = { horizontal: 'right', vertical: 'middle' };
                         }
 
-                        for (let col = 5; col <= 10; col++) {
+                        // ===== FIX: צביעה על עמודות B עד J (2–10) =====
+                        for (let col = 2; col <= 10; col++) {
                             row.getCell(col).fill = {
                                 type: 'pattern',
                                 pattern: 'solid',
